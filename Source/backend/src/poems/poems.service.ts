@@ -1,10 +1,12 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import { DATABASE_POOL } from '../database/database.module';
 import { CreatePoemDto, UpdatePoemDto } from './dto';
 
 @Injectable()
 export class PoemsService {
+  private readonly logger = new Logger(PoemsService.name);
+
   constructor(@Inject(DATABASE_POOL) private readonly db: Pool) {}
 
   async findAll() {
@@ -35,16 +37,25 @@ export class PoemsService {
   }
 
   async create(dto: CreatePoemDto) {
-    const result = await this.db.query(
-      `
-      INSERT INTO poems(title, text, author_id, genre_id, rating)
-      VALUES($1, $2, $3, $4, $5)
-      RETURNING *
-      `,
-      [dto.title, dto.text, dto.author_id, dto.genre_id, dto.rating || null],
-    );
+    try {
+      this.logger.log(`Добавление стихотворения: ${dto.title}`);
 
-    return result.rows[0];
+      const result = await this.db.query(
+        `
+        INSERT INTO poems(title, text, author_id, genre_id, rating)
+        VALUES($1, $2, $3, $4, $5)
+        RETURNING *
+        `,
+        [dto.title, dto.text, dto.author_id, dto.genre_id, dto.rating || null],
+      );
+
+      this.logger.log(`Стихотворение успешно добавлено: ${dto.title}`);
+
+      return result.rows[0];
+    } catch (error) {
+      this.logger.error('Ошибка при добавлении стихотворения', error.stack);
+      throw error;
+    }
   }
 
   async update(id: number, dto: UpdatePoemDto) {
